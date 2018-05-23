@@ -1,0 +1,17 @@
+{
+  "plugins": [
+    "transform-async-to-generator",
+    "transform-regenerator",
+    "transform-async-to-module-method",
+    ["module-resolver", {
+      "root": ["./src", "node_modules"]
+    }]
+  ],
+  "ignore": [
+    "/node_modules/(?!koa-logger)"
+  ],
+  "presets": [
+    "env",
+    "stage-0"
+  ]
+}
