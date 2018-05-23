@@ -10,7 +10,7 @@ const SUCCESS_DEFAULT_MESSAGES = {
   [STATUS_NOT_MODIFIED]: 'Not Modified' // Used when HTTP caching headers are in play
 }
 
-export default class BuildSuccess {
+export default class APISuccess {
   constructor (message, successCode = STATUS_OK, body) {
     if (!message) message = SUCCESS_DEFAULT_MESSAGES[successCode]
     this.message = message
