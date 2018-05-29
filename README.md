@@ -27,3 +27,6 @@
 - Accessibility
 - Database backups
 - Ability to pass development on to someone else (Good testing, comments, documentation, etc.)
+
+#### API Design Considerations
+- RESTful naming - https://www.vinaysahni.com/best-practices-for-a-pragmatic-restful-api#requirements
