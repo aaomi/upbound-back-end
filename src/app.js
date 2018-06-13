@@ -110,6 +110,7 @@ app.use(async (ctx, next) => {
 
     // TODO: Make methods of these checks
     // TODO: Make prettier
+    // TODO: Log to file instead of console?
     if (String(ctx.status)[0] === '5') console.error(err.stack)
   }
 })

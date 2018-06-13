@@ -5,17 +5,17 @@ import _find from 'lodash/find'
 import jwt from 'jsonwebtoken'
 import router from 'router'
 
+import crypto from 'crypto'
+
 import ApiError, { STATUS_NOT_FOUND, STATUS_UNAUTHORIZED } from 'responses/error'
 import ApiSuccess, { STATUS_OK, STATUS_CREATED } from 'responses/success'
 
 function createAuthorizationToken (user) {
-  return {
-    token: jwt.sign(_pick(user, 'email'), process.env.HMAC_SECRET, {
-      issuer: process.env.TOKEN_SIGNATURE_ISSUER,
-      audience: process.env.TOKEN_SIGNATURE_AUDIENCE,
-      expiresIn: 60 * 60 // expires in one hour
-    })
-  }
+  return jwt.sign(_pick(user, 'email'), process.env.HMAC_SECRET, {
+    issuer: process.env.TOKEN_SIGNATURE_ISSUER,
+    audience: process.env.TOKEN_SIGNATURE_AUDIENCE,
+    expiresIn: 60 * 60 // expires in one hour
+  })
 }
 
 export const authenticateUser = async (ctx, next) => {
@@ -39,8 +39,6 @@ export const authenticateUser = async (ctx, next) => {
 
     throw new ApiError('Invalid Authorization token', STATUS_UNAUTHORIZED)
   }
-
-  console.log(tokenPayload)
 
   // TODO: Replace with postgres query
   const user = _find(users, {
@@ -76,7 +74,39 @@ router.use(['/users/:id'], authenticateUser)
 
 router
   .post('/users', async (ctx, next) => {
-    return new ApiSuccess(createAuthorizationToken(ctx.request.body), STATUS_CREATED)
+    // TODO: validate request
+    // TODO: verify user doesn't exist
+
+    const token = createAuthorizationToken(ctx.request.body)
+
+    const hash = crypto.createHash('sha256')
+    hash.update(ctx.request.body.password)
+
+    // TODO: move id into constant
+    // TODO: move users into constant
+    let id
+    try {
+      // TODO: convert camel case to snake case automatically
+      id = (await ctx.knex.insert({
+        username: ctx.request.body.username,
+        first_name: ctx.request.body.firstName,
+        last_name: ctx.request.body.lastName,
+        email: ctx.request.body.email,
+        password_digest: hash.digest('hex'),
+        token,
+        created_at: new Date()
+      }, 'id').into('users'))[0]
+    } catch (error) {
+      console.error(error)
+      throw new ApiError('Failed to create user')
+    }
+
+    console.log(id)
+
+    return new ApiSuccess({
+      id,
+      token
+    }, STATUS_CREATED, 'User created')
   })
   .post('/sessions/create', async (ctx, next) => {
     // TODO: validate request
@@ -92,7 +122,9 @@ router
       throw new ApiError('Username and password combination not found', STATUS_NOT_FOUND)
     }
 
-    return new ApiSuccess(createAuthorizationToken(user))
+    return new ApiSuccess({
+      token: createAuthorizationToken(user)
+    })
   })
   .put('/users/:id', async (ctx, next) => {
     // TODO: localize text
