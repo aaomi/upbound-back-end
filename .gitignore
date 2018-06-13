@@ -60,3 +60,10 @@ typings/
 .aaom_google_credentials/
 
 data/
+
+# from typeorm init:
+.idea/
+.vscode/
+build/
+tmp/
+temp/

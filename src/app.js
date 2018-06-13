@@ -5,6 +5,7 @@ import http from 'http'
 import https from 'https'
 
 import Koa from 'koa'
+
 import bodyParser from 'koa-bodyparser'
 import logger from 'koa-logger'
 
@@ -16,24 +17,43 @@ import fs from 'fs'
 // import path from 'path'
 import rfs from 'rotating-file-stream'
 
+import router from 'router'
+
+import 'models/users'
+
 import { DIRECTORY_PATH_LOG_FOLDER } from 'constants/directories'
 import { LOG_FILE_PATH_ACCESS_LOG } from 'constants/logs'
 import { NUMBER_OF_SPACES_PER_TAB } from 'constants/responses'
 import { PORT_NUMBER_DEV_HTTP, PORT_NUMBER_DEV_HTTPS, POSTGRES_URL_DEV } from 'constants/hosting'
 
-import { STATUS_INTERNAL_SERVER_ERROR } from 'responses/error'
-import { STATUS_OK } from 'responses/success'
+import ApiError, { STATUS_INTERNAL_SERVER_ERROR } from 'responses/error'
+import ApiSuccess from 'responses/success'
 
 // initialize Koa app
 
-export const app = new Koa()
+const app = new Koa()
+
 const APP_NAME = 'upbound'
 app.name = APP_NAME
 
 app.context.db = new pg.Client(POSTGRES_URL_DEV)
 
+app.context.knex = require('knex')({
+  client: 'pg',
+  connection: POSTGRES_URL_DEV
+})
+
 const __DEV__ = !process.env.NODE_ENV || process.env.NODE_ENV === 'development'
 const __PROD__ = process.env.NODE_ENV === 'production'
+
+app.context.__DEV__ = __DEV__
+app.context.__PROD__ = __PROD__
+
+if (
+  !process.env.HMAC_SECRET ||
+  !process.env.TOKEN_SIGNATURE_ISSUER ||
+  !process.env.TOKEN_SIGNATURE_AUDIENCE
+) throw (new Error('No HMAC Secret Present'))
 
 // logger
 
@@ -94,15 +114,28 @@ app.use(async (ctx, next) => {
   }
 })
 
+router
+  .get('/', (ctx, next) => {
+    ctx.body = 'Hello World!'
+  })
+
 app.use(async (ctx, next) => {
   let result = {}
 
-  // Handle route
-  // result = await tableController.run.call(tableController, ctx, whereParam, preAuth)
+  result = await next()
 
-  ctx.body = result.body || result
-  ctx.status = result.status || STATUS_OK
+  if (!(result instanceof ApiSuccess)) {
+    throw new ApiError('Data not returned as an instance of ApiSuccess')
+  }
+
+  ctx.body = result
 })
+
+app
+  .use(router.routes())
+  .use(router.allowedMethods())
+
+// Prettify response
 
 app.use(async ctx => {
   if (_isObject(ctx.body)) {
@@ -121,3 +154,5 @@ app.context.db.connect((err) => {
   http.createServer(app.callback()).listen(PORT_NUMBER_DEV_HTTP)
   https.createServer(app.callback()).listen(PORT_NUMBER_DEV_HTTPS)
 })
+
+export default app

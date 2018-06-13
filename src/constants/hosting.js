@@ -1,4 +1,12 @@
 export const PORT_NUMBER_DEV_HTTP = 3000
 export const PORT_NUMBER_DEV_HTTPS = 3001
 
-export const POSTGRES_URL_DEV = 'postgres://jhash:@localhost:5433/upbound'
+export const API_URL_DEV = `https://localhost:${PORT_NUMBER_DEV_HTTPS}`
+
+export const POSTGRES_PORT_NUMBER = 5433
+export const POSTGRES_TABLE_NAME_DEV = 'upbound'
+export const POSTGRES_TABLE_NAME_DEV_TEST = 'upbound_test'
+export const POSTGRES_USER_NAME_DEV = 'aaom'
+export const POSTGRES_USER_PASSWORD_DEV = 'password'
+export const POSTGRES_URL_DEV = `postgres://${POSTGRES_USER_NAME_DEV}:${POSTGRES_USER_PASSWORD_DEV}@localhost:${POSTGRES_PORT_NUMBER}/${POSTGRES_TABLE_NAME_DEV}`
+export const POSTGRES_URL_DEV_TEST = `postgres://${POSTGRES_USER_NAME_DEV}:${POSTGRES_USER_PASSWORD_DEV}@localhost:${POSTGRES_PORT_NUMBER}/${POSTGRES_TABLE_NAME_DEV_TEST}`

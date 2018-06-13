@@ -40,7 +40,7 @@ class ExtendableError extends Error {
 }
 
 // TODO: return better description in response
-export default class APIError extends ExtendableError {
+export default class ApiError extends ExtendableError {
   constructor (message, errorCode = STATUS_INTERNAL_SERVER_ERROR, errorList) {
     if (!message) message = ERROR_CODE_DEFAULT_MESSAGES[errorCode]
     super(message)
