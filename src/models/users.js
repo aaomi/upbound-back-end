@@ -1,17 +1,20 @@
 import _get from 'lodash/get'
 import _pick from 'lodash/pick'
-import _find from 'lodash/find'
+import _isUndefined from 'lodash/isUndefined'
 
 import jwt from 'jsonwebtoken'
 import router from 'router'
 
 import crypto from 'crypto'
 
-import ApiError, { STATUS_NOT_FOUND, STATUS_UNAUTHORIZED } from 'responses/error'
+import ApiError, { STATUS_NOT_FOUND, STATUS_UNAUTHORIZED, STATUS_BAD_REQUEST } from 'responses/error'
 import ApiSuccess, { STATUS_OK, STATUS_CREATED } from 'responses/success'
 
+const DB_TABLE_NAME_USERS = 'users'
+
 function createAuthorizationToken (user) {
-  return jwt.sign(_pick(user, 'email'), process.env.HMAC_SECRET, {
+  // TODO: launch background task to delete expired tokens?
+  return jwt.sign(_pick(user, 'id'), process.env.HMAC_SECRET, {
     issuer: process.env.TOKEN_SIGNATURE_ISSUER,
     audience: process.env.TOKEN_SIGNATURE_AUDIENCE,
     expiresIn: 60 * 60 // expires in one hour
@@ -21,53 +24,51 @@ function createAuthorizationToken (user) {
 export const authenticateUser = async (ctx, next) => {
   if (!ctx.headers.authorization) throw new ApiError('No Authorization header present', STATUS_UNAUTHORIZED)
 
-  const splitAuthorizationHeader = ctx.headers.authorization.split('Bearer ')
+  const splitAuthorizationHeader = (ctx.headers.authorization || '').split('Bearer ')
 
-  if (splitAuthorizationHeader.length !== 2) throw new ApiError('Invalid Authorization header format (Should match: "Bearer <token>")', STATUS_UNAUTHORIZED)
+  if (splitAuthorizationHeader.length !== 2) {
+    throw new ApiError(`Invalid Authorization header format (Should match: 'Bearer <token>')`, STATUS_UNAUTHORIZED)
+  }
 
-  const authToken = splitAuthorizationHeader[1]
+  const token = splitAuthorizationHeader[1]
 
   let tokenPayload
 
   try {
-    tokenPayload = jwt.verify(authToken, process.env.HMAC_SECRET)
+    tokenPayload = jwt.verify(token, process.env.HMAC_SECRET)
   } catch (error) {
     // TODO: move string to a constant
     if (_get(error, 'name') === 'TokenExpiredError') {
+      // TODO: remove expired token(s) from user in table?
       throw new ApiError('Authorization token expired', STATUS_UNAUTHORIZED)
     }
 
     throw new ApiError('Invalid Authorization token', STATUS_UNAUTHORIZED)
   }
 
-  // TODO: Replace with postgres query
-  const user = _find(users, {
-    email: tokenPayload.email
-  })
+  // TODO: validate token payload with ajv
+  if (!tokenPayload.id) {
+    throw new ApiError('Invalid Authorization token payload', STATUS_UNAUTHORIZED)
+  }
 
-  if (!user) {
+  const matchedUsers = await ctx.knex(DB_TABLE_NAME_USERS).where({
+    id: tokenPayload.id
+  }).whereRaw(`'${token}' = ANY (tokens)`)
+
+  if (!matchedUsers.length) {
     throw new ApiError('Invalid Authorization token', STATUS_UNAUTHORIZED)
   }
 
-  if (user.authTokens.indexOf(authToken) === -1) {
-    throw new ApiError('Invalid Authorization token', STATUS_UNAUTHORIZED)
+  if (matchedUsers.length !== 1) {
+    // TODO: localize text
+    // TODO: don't share this info?
+    throw new ApiError('More than one account found with this token')
   }
+
+  ctx.user = matchedUsers[0]
 
   return next()
 }
-
-// TODO: Replace with postgres query
-const users = [
-  {
-    id: 1,
-    username: 'jimbob',
-    email: 'jimbob@gmail.org',
-    password: 'password',
-    authTokens: [
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImppbWJvYkBnbWFpbC5vcmciLCJpYXQiOjE1Mjg5MjEzMDYsImV4cCI6MTUyODkyNDkwNiwiYXVkIjoidXBib3VuZC1mcm9udC1lbmQiLCJpc3MiOiJ1cGJvdW5kLWJhY2stZW5kIn0.BXCobQm6vGmf8MKdstV6FsCrz06a09Jky8nkvqI49XQ'
-    ]
-  }
-]
 
 // Authenticate for any user change routes
 router.use(['/users/:id'], authenticateUser)
@@ -75,65 +76,139 @@ router.use(['/users/:id'], authenticateUser)
 router
   .post('/users', async (ctx, next) => {
     // TODO: validate request
-    // TODO: verify user doesn't exist
-
-    const token = createAuthorizationToken(ctx.request.body)
 
     const hash = crypto.createHash('sha256')
     hash.update(ctx.request.body.password)
 
     // TODO: move id into constant
-    // TODO: move users into constant
-    let id
+    let user, token
     try {
       // TODO: convert camel case to snake case automatically
-      id = (await ctx.knex.insert({
-        username: ctx.request.body.username,
-        first_name: ctx.request.body.firstName,
-        last_name: ctx.request.body.lastName,
-        email: ctx.request.body.email,
+      user = (await ctx.knex.insert(Object.assign(_pick(ctx.request.body, [
+        'username',
+        'first_name',
+        'last_name',
+        'email'
+      ]), {
         password_digest: hash.digest('hex'),
-        token,
         created_at: new Date()
-      }, 'id').into('users'))[0]
+      })).returning('*').into(DB_TABLE_NAME_USERS))[0]
+
+      token = createAuthorizationToken(user)
+
+      await ctx.knex(DB_TABLE_NAME_USERS).where({
+        id: user.id
+      }).update({
+        tokens: `{${token}}`
+      })
     } catch (error) {
-      console.error(error)
+      // TODO: move constraint name to constant. Use in migrations as well
+      if (_get(error, 'constraint') === 'unique_email') {
+        throw new ApiError('An account with this email address already exists', STATUS_BAD_REQUEST)
+      }
+
+      // TODO: move constraint name to constant. Use in migrations as well
+      if (_get(error, 'constraint') === 'unique_username') {
+        throw new ApiError('An account with this username already exists', STATUS_BAD_REQUEST)
+      }
+
       throw new ApiError('Failed to create user')
     }
 
-    console.log(id)
-
     return new ApiSuccess({
-      id,
+      id: user.id,
       token
     }, STATUS_CREATED, 'User created')
   })
   .post('/sessions/create', async (ctx, next) => {
     // TODO: validate request
 
-    // TODO: Replace with postgres query
-    const user = _find(users, {
-      [ctx.request.body.username.match('@') ? 'email' : 'username']: ctx.request.body.username,
-      password: ctx.request.body.password
+    const usernameOrEmail = ctx.request.body.username.match('@')
+      ? 'email' : 'username'
+
+    const hash = crypto.createHash('sha256')
+    hash.update(ctx.request.body.password)
+
+    const matchedUsers = await ctx.knex(DB_TABLE_NAME_USERS).where({
+      [usernameOrEmail]: ctx.request.body.username,
+      password_digest: hash.digest('hex')
     })
 
-    if (!user) {
+    if (!matchedUsers.length) {
       // TODO: localize text
       throw new ApiError('Username and password combination not found', STATUS_NOT_FOUND)
     }
 
+    if (matchedUsers.length !== 1) {
+      // TODO: localize text
+      // TODO: don't share this info?
+      throw new ApiError('More than one account found with this username/email')
+    }
+
+    const token = createAuthorizationToken(matchedUsers[0])
+
+    await ctx.knex.raw(`
+      UPDATE users SET tokens = tokens || '{${token}}'
+        WHERE ${usernameOrEmail} = '${ctx.request.body.username}'
+    `)
+
     return new ApiSuccess({
-      token: createAuthorizationToken(user)
+      token
     })
   })
   .put('/users/:id', async (ctx, next) => {
+    // TODO: validate request
+    if (_isUndefined(ctx.params.id)) {
+      throw new ApiError('ID is required', STATUS_BAD_REQUEST)
+    }
+
+    const matchedUsers = await ctx.knex(DB_TABLE_NAME_USERS).where({
+      id: ctx.params.id
+    })
+
+    if (!matchedUsers.length) {
+      // TODO: localize text
+      throw new ApiError(`No user found with id equal to '${ctx.params.id}'`, STATUS_NOT_FOUND)
+    }
+
+    // Authorization
+    // TODO: move?
+    if (matchedUsers[0].id !== ctx.user.id) {
+      throw new ApiError('Unauthorized to update user', STATUS_UNAUTHORIZED)
+    }
+
+    await ctx.knex(DB_TABLE_NAME_USERS).where({
+      id: ctx.params.id
+    }).update(ctx.request.body)
+
     // TODO: localize text
     return new ApiSuccess(undefined, STATUS_OK, 'User updated')
   })
   .del('/users/:id', async (ctx, next) => {
+    // TODO: validate request
+    if (_isUndefined(ctx.params.id)) {
+      throw new ApiError('ID is required', STATUS_BAD_REQUEST)
+    }
+
+    const matchedUsers = await ctx.knex(DB_TABLE_NAME_USERS).where({
+      id: ctx.params.id
+    })
+
+    if (!matchedUsers.length) {
+      // TODO: localize text
+      throw new ApiError(`No user found with id equal to '${ctx.params.id}'`, STATUS_NOT_FOUND)
+    }
+
+    // Authorization
+    // TODO: move?
+    if (matchedUsers[0].id !== ctx.user.id) {
+      throw new ApiError('Unauthorized to delete user', STATUS_UNAUTHORIZED)
+    }
+
+    await ctx.knex(DB_TABLE_NAME_USERS).where({
+      id: ctx.params.id
+    }).del()
+
     // TODO: localize text
     return new ApiSuccess(undefined, STATUS_OK, 'User deleted')
-  })
-  .all('/users/:id', async (ctx, next) => {
-    await authenticateUser(ctx)
   })

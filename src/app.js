@@ -117,7 +117,7 @@ app.use(async (ctx, next) => {
 
 router
   .get('/', (ctx, next) => {
-    ctx.body = 'Hello World!'
+    return new ApiSuccess('Hello World!')
   })
 
 app.use(async (ctx, next) => {
