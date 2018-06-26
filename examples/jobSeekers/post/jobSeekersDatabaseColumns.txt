@@ -1,0 +1,90 @@
+Timestamp
+Timestamp - Last Contact Date
+First Name
+Last Name
+Contact Email-Please enter only Job Seeker's email here.  There will be a place for caregiver email later.
+Contact Phone Number
+Birth Date	
+Full Address
+Street Address
+City
+State
+Country
+Zip Code
+Are you your own guardian?
+First Name
+Last Name
+Phone Number
+Email
+Highest Level of Education Completed
+Please provide name of school and degree/program (if applicable) E.g. Computer Science
+Vision Difficulties
+Hearing Difficulties
+Physical/Mental Health Restrictions
+Assistive devices utilized (ex: Glasses, hearing aids, and Wheelchair etc.):*
+Additional Health Information you would like to disclose?
+State Support/Programs:* Check all that apply
+Family Support:* Check all that apply
+Other Job or Income:
+"Please provide Job/Income details (if applicable) 	"
+Residential Information (ex: rent, own)
+Social Support: (Check all that apply)
+Do you have a current driver's license?
+Do you have your own vehicle
+Additional Transportation Information you would like to disclose?
+Work Related Skills: E.g. Additional Vocational Certificates or Training, Additional Skills and talents, Volunteer Experiences, Other
+Past Activities, Organizations, Hobbies:
+Please Provide An Emergency Contact
+Who referred you here:
+Please list your computer skills and languages here:
+Interests
+Region
+Resume
+Resume Edit by JS
+I-CHAT
+Phone Screen
+Meet n' Greet
+Objective Assessment
+Follow Up Notes
+Assessments
+ACHENBACH
+Interview Prep
+Willing to Disclose
+Job Ready
+Candidate Stage
+Current Job Status
+Notes
+Coaching
+Job Consideration
+
+Job Placement Through AAOM
+Job Placement Status
+Start Date
+End Date
+Time Between Timestamp and Start Date
+Company
+Industry
+Salary Info
+Hourly rate
+FLSA Status
+FTE (Full-time equivalent)
+
+Job Placement Through AAOM (2)
+Start Date (2)
+Job Placement Status(2)
+Company (2)
+Industry (2)
+Salary Info (2)
+Hourly rate (2)
+FLSA Status (2)
+FTE (2)
+
+Job Placement Through AAOM (3)
+Job Placement Status (3)
+Start Date (3)
+Company (3)
+Industry (3)
+Salary Info (3)
+Hourly rate (3)
+FLSA Status (3)
+FTE (3)

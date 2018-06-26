@@ -20,6 +20,7 @@ import rfs from 'rotating-file-stream'
 import router from 'router'
 
 import 'models/users'
+import 'models/jobSeekers'
 
 import { DIRECTORY_PATH_LOG_FOLDER } from 'constants/directories'
 import { LOG_FILE_PATH_ACCESS_LOG } from 'constants/logs'

@@ -10,14 +10,16 @@ import crypto from 'crypto'
 import ApiError, { STATUS_NOT_FOUND, STATUS_UNAUTHORIZED, STATUS_BAD_REQUEST } from 'responses/error'
 import ApiSuccess, { STATUS_OK, STATUS_CREATED } from 'responses/success'
 
-const DB_TABLE_NAME_USERS = 'users'
+import { ROUTE_USERS, ROUTE_USERS_USER_ID, ROUTE_SESSIONS, ROUTE_SESSIONS_CREATE } from 'constants/routes/users'
+
+import { DB_TABLE_NAME_USERS } from 'constants/database/users/users'
 
 function createAuthorizationToken (user) {
   // TODO: launch background task to delete expired tokens?
   return jwt.sign(_pick(user, 'id'), process.env.HMAC_SECRET, {
     issuer: process.env.TOKEN_SIGNATURE_ISSUER,
     audience: process.env.TOKEN_SIGNATURE_AUDIENCE,
-    expiresIn: 60 * 60 // expires in one hour
+    expiresIn: 60 * 60 * 5 // expires in (5) hour(s)
   })
 }
 
@@ -71,10 +73,10 @@ export const authenticateUser = async (ctx, next) => {
 }
 
 // Authenticate for any user change routes
-router.use(['/users/:id'], authenticateUser)
+router.use([`/${ROUTE_USERS}/:${ROUTE_USERS_USER_ID}`], authenticateUser)
 
 router
-  .post('/users', async (ctx, next) => {
+  .post(`/${ROUTE_USERS}`, async (ctx, next) => {
     // TODO: validate request
 
     const hash = crypto.createHash('sha256')
@@ -120,7 +122,7 @@ router
       token
     }, STATUS_CREATED, 'User created')
   })
-  .post('/sessions/create', async (ctx, next) => {
+  .post(`/${ROUTE_SESSIONS}/${ROUTE_SESSIONS_CREATE}`, async (ctx, next) => {
     // TODO: validate request
 
     const usernameOrEmail = ctx.request.body.username.match('@')
@@ -154,9 +156,9 @@ router
 
     return new ApiSuccess({
       token
-    })
+    }, STATUS_CREATED)
   })
-  .put('/users/:id', async (ctx, next) => {
+  .put(`/${ROUTE_USERS}/:${ROUTE_USERS_USER_ID}`, async (ctx, next) => {
     // TODO: validate request
     if (_isUndefined(ctx.params.id)) {
       throw new ApiError('ID is required', STATUS_BAD_REQUEST)
@@ -184,7 +186,7 @@ router
     // TODO: localize text
     return new ApiSuccess(undefined, STATUS_OK, 'User updated')
   })
-  .del('/users/:id', async (ctx, next) => {
+  .del(`/${ROUTE_USERS}/:${ROUTE_USERS_USER_ID}`, async (ctx, next) => {
     // TODO: validate request
     if (_isUndefined(ctx.params.id)) {
       throw new ApiError('ID is required', STATUS_BAD_REQUEST)
