@@ -1,4 +1,5 @@
 import _pick from 'lodash/pick'
+import _isEmpty from 'lodash/isEmpty'
 import _mapKeys from 'lodash/mapKeys'
 import _isUndefined from 'lodash/isUndefined'
 
@@ -46,24 +47,6 @@ router
       ]), {
         created_at: new Date()
       }))).returning('id').into(DB_TABLE_NAME_USERS))[0]
-
-      const jobSeekerGuardianUserId = (await trx.insert(ensureUsername(_mapKeys(Object.assign(_pick(ctx.request.body, [
-        'guardian_first_name',
-        'guardian_last_name',
-        'guardian_email',
-        'guardian_phone'
-      ]), {
-        created_at: new Date()
-      }), (value, key) => key.replace('guardian_', '')))).returning('id').into(DB_TABLE_NAME_USERS))[0]
-
-      const jobSeekerSecondaryGuardianUserId = (await trx.insert(ensureUsername(_mapKeys(Object.assign(_pick(ctx.request.body, [
-        'secondary_guardian_first_name',
-        'secondary_guardian_last_name',
-        'secondary_guardian_email',
-        'secondary_guardian_phone'
-      ]), {
-        created_at: new Date()
-      }), (value, key) => key.replace('secondary_guardian_', '')))).returning('id').into(DB_TABLE_NAME_USERS))[0]
 
       const jobSeekerId = (await trx.insert(Object.assign(_pick(ctx.request.body, [
         'last_contacted',
@@ -113,17 +96,39 @@ router
         user_id: jobSeekerUserId
       })).returning('id').into(DB_TABLE_NAME_JOB_SEEKERS))[0]
 
-      await trx.insert({
-        guardian_user_id: jobSeekerGuardianUserId,
-        job_seeker_id: jobSeekerId
-      }).into(DB_TABLE_NAME_JOB_SEEKER_GUARDIANS)
+      if (ctx.request.body['guardian_email']) {
+        const jobSeekerGuardianUserId = (await trx.insert(ensureUsername(_mapKeys(Object.assign(_pick(ctx.request.body, [
+          'guardian_first_name',
+          'guardian_last_name',
+          'guardian_email',
+          'guardian_phone'
+        ]), {
+          created_at: new Date()
+        }), (value, key) => key.replace('guardian_', '')))).returning('id').into(DB_TABLE_NAME_USERS))[0]
 
-      await trx.insert({
-        guardian_user_id: jobSeekerSecondaryGuardianUserId,
-        job_seeker_id: jobSeekerId
-      }).into(DB_TABLE_NAME_JOB_SEEKER_GUARDIANS)
+        await trx.insert({
+          guardian_user_id: jobSeekerGuardianUserId,
+          job_seeker_id: jobSeekerId
+        }).into(DB_TABLE_NAME_JOB_SEEKER_GUARDIANS)
+      }
 
-      await trx.insert(Object.assign(_mapKeys(_pick(ctx.request.body, [
+      if (ctx.request.body['secondary_guardian_email']) {
+        const jobSeekerSecondaryGuardianUserId = (await trx.insert(ensureUsername(_mapKeys(Object.assign(_pick(ctx.request.body, [
+          'secondary_guardian_first_name',
+          'secondary_guardian_last_name',
+          'secondary_guardian_email',
+          'secondary_guardian_phone'
+        ]), {
+          created_at: new Date()
+        }), (value, key) => key.replace('secondary_guardian_', '')))).returning('id').into(DB_TABLE_NAME_USERS))[0]
+
+        await trx.insert({
+          guardian_user_id: jobSeekerSecondaryGuardianUserId,
+          job_seeker_id: jobSeekerId
+        }).into(DB_TABLE_NAME_JOB_SEEKER_GUARDIANS)
+      }
+
+      const jobPlacementInfo = _mapKeys(_pick(ctx.request.body, [
         'job_placement_through_aaom',
         'job_placement_status',
         'job_placement_start_date',
@@ -135,11 +140,15 @@ router
         'job_placement_hourly_rate',
         'job_placement_status_flsa',
         'job_placement_fte'
-      ]), (value, key) => key.replace('job_placement_', '')), {
-        job_seeker_id: jobSeekerId
-      })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      ]), (value, key) => key.replace('job_placement_', ''))
 
-      await trx.insert(Object.assign(_mapKeys(_pick(ctx.request.body, [
+      if (!_isEmpty(jobPlacementInfo)) {
+        await trx.insert(Object.assign(jobPlacementInfo, {
+          job_seeker_id: jobSeekerId
+        })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      }
+
+      const secondaryJobPlacementInfo = _mapKeys(_pick(ctx.request.body, [
         'secondary_job_placement_through_aaom',
         'secondary_job_placement_status',
         'secondary_job_placement_start_date',
@@ -151,11 +160,15 @@ router
         'secondary_job_placement_hourly_rate',
         'secondary_job_placement_status_flsa',
         'secondary_job_placement_fte'
-      ]), (value, key) => key.replace('secondary_job_placement_', '')), {
-        job_seeker_id: jobSeekerId
-      })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      ]), (value, key) => key.replace('secondary_job_placement_', ''))
 
-      await trx.insert(Object.assign(_mapKeys(_pick(ctx.request.body, [
+      if (!_isEmpty(secondaryJobPlacementInfo)) {
+        await trx.insert(Object.assign(secondaryJobPlacementInfo, {
+          job_seeker_id: jobSeekerId
+        })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      }
+
+      const tertiaryJobPlacementInfo = _mapKeys(_pick(ctx.request.body, [
         'tertiary_job_placement_through_aaom',
         'tertiary_job_placement_status',
         'tertiary_job_placement_start_date',
@@ -167,9 +180,13 @@ router
         'tertiary_job_placement_hourly_rate',
         'tertiary_job_placement_status_flsa',
         'tertiary_job_placement_fte'
-      ]), (value, key) => key.replace('tertiary_job_placement_', '')), {
-        job_seeker_id: jobSeekerId
-      })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      ]), (value, key) => key.replace('tertiary_job_placement_', ''))
+
+      if (!_isEmpty(tertiaryJobPlacementInfo)) {
+        await trx.insert(Object.assign(tertiaryJobPlacementInfo, {
+          job_seeker_id: jobSeekerId
+        })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      }
 
       return jobSeekerId
     })
