@@ -1,6 +1,7 @@
 const fs = require('fs')
 const readline = require('readline')
 const {google} = require('googleapis')
+const axios = require('axios')
 
 // If modifying these scopes, delete credentials.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
@@ -75,21 +76,29 @@ function getNewToken (oAuth2Client, callback) {
  * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
  */
 function fetchJobSeekers (auth) {
+  console.log(JSON.stringify(auth))
   const sheets = google.sheets({version: 'v4', auth})
   sheets.spreadsheets.values.get({
     spreadsheetId: AAOM_JOB_SEEKER_INTAKE_DATABASE_SPREADSHEET_ID,
     range: `${AAOM_JOB_SEEKER_INTAKE_DATABASE_SPREADSHEET_CANDIDATE_TAB_NAME}`
   }, (err, {data}) => {
-    if (err) return console.log('The API returned an error: ' + err)
+    if (err) return console.log('The API returned an error: ' + err + err.stack + JSON.stringify(data))
     const rows = data.values
     if (rows.length) {
-      const fileContent = rows.map((row) => {
-        return row.join(',')
-      }).join('\n')
+      // const fileContent = rows.map((row, index) => {
+      //   return row.join(',')
+      // }).join('\n')
 
-      // console.log(fileContent)
+      const keyMap = {}
 
-      const filePath = `data/jobSeekerDatabaseDump_${(new Date()).toJSON()}.csv`
+      rows[0].map((row, index) => {
+        keyMap[index] = row
+      })
+      // console.log(rows[0].length)
+
+      const fileContent = JSON.stringify(keyMap)
+
+      const filePath = `data/jobSeekerDatabaseDump_${(new Date()).toJSON()}.json`
 
       fs.writeFile(filePath, fileContent, (err) => {
         if (err) console.error(err)
