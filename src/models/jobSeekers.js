@@ -17,7 +17,7 @@ import { DB_TABLE_NAME_JOB_SEEKER_GUARDIANS } from 'constants/database/jobSeeker
 import { DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS } from 'constants/database/jobSeekers/placements'
 
 // Authenticate for any user change routes
-router.use([`/${ROUTE_JOB_SEEKERS}`], authenticateUser)
+router.use([`/${ROUTE_JOB_SEEKERS}/:${ROUTE_JOB_SEEKERS_ID}`], authenticateUser)
 
 function ensureUsername (userBody) {
   return Object.assign({
@@ -26,7 +26,7 @@ function ensureUsername (userBody) {
 }
 
 router
-  .post(`/${ROUTE_JOB_SEEKERS}/:${ROUTE_JOB_SEEKERS_ID}`, async (ctx, next) => {
+  .post(`/${ROUTE_JOB_SEEKERS}`, async (ctx, next) => {
     // TODO: validate request
 
     const jobSeekerId = await ctx.knex.transaction(async (trx) => {
@@ -135,9 +135,9 @@ router
         'job_placement_hourly_rate',
         'job_placement_status_flsa',
         'job_placement_fte'
-      ]), (value, key) => key.replace('job_placement_', ''))), {
+      ]), (value, key) => key.replace('job_placement_', '')), {
         job_seeker_id: jobSeekerId
-      }).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
 
       await trx.insert(Object.assign(_mapKeys(_pick(ctx.request.body, [
         'secondary_job_placement_through_aaom',
@@ -151,9 +151,9 @@ router
         'secondary_job_placement_hourly_rate',
         'secondary_job_placement_status_flsa',
         'secondary_job_placement_fte'
-      ]), (value, key) => key.replace('secondary_job_placement_', ''))), {
+      ]), (value, key) => key.replace('secondary_job_placement_', '')), {
         job_seeker_id: jobSeekerId
-      }).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
 
       await trx.insert(Object.assign(_mapKeys(_pick(ctx.request.body, [
         'tertiary_job_placement_through_aaom',
@@ -167,9 +167,9 @@ router
         'tertiary_job_placement_hourly_rate',
         'tertiary_job_placement_status_flsa',
         'tertiary_job_placement_fte'
-      ]), (value, key) => key.replace('tertiary_job_placement_', ''))), {
+      ]), (value, key) => key.replace('tertiary_job_placement_', '')), {
         job_seeker_id: jobSeekerId
-      }).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
+      })).into(DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS)
 
       return jobSeekerId
     })
