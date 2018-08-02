@@ -1,6 +1,7 @@
 import _pick from 'lodash/pick'
 import _isEmpty from 'lodash/isEmpty'
 import _mapKeys from 'lodash/mapKeys'
+import _isString from 'lodash/isString'
 import _isUndefined from 'lodash/isUndefined'
 
 import router from 'router'
@@ -26,6 +27,28 @@ function ensureUsername (userBody) {
   }, userBody)
 }
 
+function typeCastJobSeekerIntakeBoolean (value) {
+  if (!_isString(value)) {
+    return value
+  }
+
+  const lowerCaseString = value.toLowerCase()
+  if (lowerCaseString === 'n') {
+    return false
+  }
+  if (lowerCaseString === 'y') {
+    return true
+  }
+  if (lowerCaseString === 'no') {
+    return false
+  }
+  if (lowerCaseString === 'yes') {
+    return true
+  }
+
+  return value
+}
+
 router
   .post(`/${ROUTE_JOB_SEEKERS}`, async (ctx, next) => {
     // TODO: validate request
@@ -36,6 +59,7 @@ router
         'username',
         'first_name',
         'last_name',
+        'birth_date',
         'email',
         'phone',
         'address_line_one',
@@ -48,7 +72,7 @@ router
         created_at: new Date()
       }))).returning('id').into(DB_TABLE_NAME_USERS))[0]
 
-      const jobSeekerId = (await trx.insert(Object.assign(_pick(ctx.request.body, [
+      const jobSeekerInfo = Object.assign(_pick(ctx.request.body, [
         'last_contacted',
         'education_highest_completed',
         'education_highest_school',
@@ -59,6 +83,7 @@ router
         'health_restrictions_mental',
         'health_assistive_devices',
         'health_additional_info',
+        'state_support_programs',
         'family_support',
         'job_income',
         'job_income_details',
@@ -75,6 +100,7 @@ router
         'emergency_contact_relationship',
         'referred_by',
         'computer_skills_languages',
+        'interests',
         'region_aaom_mi',
         'resume_present',
         'resume_edit',
@@ -90,11 +116,19 @@ router
         'disclosure_willing',
         'status_job_ready',
         'status_candidate_stage',
+        'status_job_current',
         'job_coaching',
         'job_consideration'
       ]), {
         user_id: jobSeekerUserId
-      })).returning('id').into(DB_TABLE_NAME_JOB_SEEKERS))[0]
+      })
+
+      jobSeekerInfo['transportation_drivers_license'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['transportation_drivers_license'])
+      jobSeekerInfo['transportation_has_vehicle'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['transportation_has_vehicle'])
+      jobSeekerInfo['resume_present'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['resume_present'])
+      jobSeekerInfo['assessment_ichat'] = `{${jobSeekerInfo['assessment_ichat']}}`
+
+      const jobSeekerId = (await trx.insert(jobSeekerInfo).returning('id').into(DB_TABLE_NAME_JOB_SEEKERS))[0]
 
       if (ctx.request.body['guardian_email']) {
         const jobSeekerGuardianUserId = (await trx.insert(ensureUsername(_mapKeys(Object.assign(_pick(ctx.request.body, [
@@ -112,22 +146,6 @@ router
         }).into(DB_TABLE_NAME_JOB_SEEKER_GUARDIANS)
       }
 
-      if (ctx.request.body['secondary_guardian_email']) {
-        const jobSeekerSecondaryGuardianUserId = (await trx.insert(ensureUsername(_mapKeys(Object.assign(_pick(ctx.request.body, [
-          'secondary_guardian_first_name',
-          'secondary_guardian_last_name',
-          'secondary_guardian_email',
-          'secondary_guardian_phone'
-        ]), {
-          created_at: new Date()
-        }), (value, key) => key.replace('secondary_guardian_', '')))).returning('id').into(DB_TABLE_NAME_USERS))[0]
-
-        await trx.insert({
-          guardian_user_id: jobSeekerSecondaryGuardianUserId,
-          job_seeker_id: jobSeekerId
-        }).into(DB_TABLE_NAME_JOB_SEEKER_GUARDIANS)
-      }
-
       const jobPlacementInfo = _mapKeys(_pick(ctx.request.body, [
         'job_placement_through_aaom',
         'job_placement_status',
@@ -141,6 +159,8 @@ router
         'job_placement_status_flsa',
         'job_placement_fte'
       ]), (value, key) => key.replace('job_placement_', ''))
+
+      jobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(jobPlacementInfo['through_aaom'])
 
       if (!_isEmpty(jobPlacementInfo)) {
         await trx.insert(Object.assign(jobPlacementInfo, {
@@ -162,6 +182,8 @@ router
         'secondary_job_placement_fte'
       ]), (value, key) => key.replace('secondary_job_placement_', ''))
 
+      secondaryJobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(secondaryJobPlacementInfo['through_aaom'])
+
       if (!_isEmpty(secondaryJobPlacementInfo)) {
         await trx.insert(Object.assign(secondaryJobPlacementInfo, {
           job_seeker_id: jobSeekerId
@@ -181,6 +203,8 @@ router
         'tertiary_job_placement_status_flsa',
         'tertiary_job_placement_fte'
       ]), (value, key) => key.replace('tertiary_job_placement_', ''))
+
+      tertiaryJobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(tertiaryJobPlacementInfo['through_aaom'])
 
       if (!_isEmpty(tertiaryJobPlacementInfo)) {
         await trx.insert(Object.assign(tertiaryJobPlacementInfo, {

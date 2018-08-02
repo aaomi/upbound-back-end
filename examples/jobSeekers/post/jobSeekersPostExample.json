@@ -2,6 +2,7 @@
   "first_name": "George",
   "last_name": "Castanza",
 
+  "birth_date": "07/10/1990",
   "email": "george@gmail.org",
   "phone": "TEXT",
   "address_line_one": "TEXT",
@@ -16,11 +17,6 @@
   "guardian_first_name": "Mom",
   "guardian_last_name": "Castanza",
 
-  "secondary_guardian_email": "dad@gmail.org",
-  "secondary_guardian_phone": "TEXT",
-  "secondary_guardian_first_name": "Dad",
-  "secondary_guardian_last_name": "Castanza",
-
   "last_contacted": "06/26/18",
   "education_highest_completed": "TEXT",
   "education_highest_school": "TEXT",
@@ -31,6 +27,7 @@
   "health_restrictions_mental": "TEXT",
   "health_assistive_devices": "TEXT",
   "health_additional_info": "TEXT",
+  "state_support_programs": "TEXT",
   "family_support": "TEXT",
   "job_income": "TEXT",
   "job_income_details": "TEXT",
@@ -47,6 +44,7 @@
   "emergency_contact_relationship": "TEXT",
   "referred_by": "TEXT",
   "computer_skills_languages": "TEXT",
+  "interests": "TEXT",
   "region_aaom_mi": "TEXT",
   "resume_present": true,
   "resume_edit": "TEXT",
@@ -62,6 +60,7 @@
   "disclosure_willing": "TEXT",
   "status_job_ready": "TEXT",
   "status_candidate_stage": "TEXT",
+  "status_job_current": "TEXT",
   "job_coaching": "TEXT",
   "job_consideration": "TEXT",
 
