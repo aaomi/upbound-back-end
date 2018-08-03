@@ -69,3 +69,5 @@ data/
 build/
 tmp/
 temp/
+
+upbound-back-end.pem
