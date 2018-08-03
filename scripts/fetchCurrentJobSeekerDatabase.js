@@ -2,6 +2,9 @@ const fs = require('fs')
 const readline = require('readline')
 const {google} = require('googleapis')
 const axios = require('axios')
+const _get = require('lodash/get')
+const _isArray = require('lodash/isArray')
+const _isString = require('lodash/isString')
 
 // If modifying these scopes, delete credentials.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
@@ -76,7 +79,6 @@ function getNewToken (oAuth2Client, callback) {
  * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
  */
 function fetchJobSeekers (auth) {
-  console.log(JSON.stringify(auth))
   const sheets = google.sheets({version: 'v4', auth})
   sheets.spreadsheets.values.get({
     spreadsheetId: AAOM_JOB_SEEKER_INTAKE_DATABASE_SPREADSHEET_ID,
@@ -89,20 +91,70 @@ function fetchJobSeekers (auth) {
       //   return row.join(',')
       // }).join('\n')
 
-      const keyMap = {}
+      fs.readFile('data/job_seeker_db_key_map.json', (err, content) => {
+        if (err) return console.log('Error loading key map file:', err)
 
-      rows[0].map((row, index) => {
-        keyMap[index] = row
-      })
-      // console.log(rows[0].length)
+        const keyMap = JSON.parse(content)
+        const errorLogs = []
+        const promises = []
 
-      const fileContent = JSON.stringify(keyMap)
+        let numberOfSuccesses = 0
+        let numberTotal = 0
 
-      const filePath = `data/jobSeekerDatabaseDump_${(new Date()).toJSON()}.json`
+        rows.forEach((row, index) => {
+          if (index === 0 || (index >= 457 && index <= 470)) return // TODO: this should just validate a few key fields instead
+          const jobSeeker = {}
+          row.forEach((value, index) => {
+            let editedValue = value
+            if (_isString(value)) {
+              editedValue = editedValue.trim()
+              if (editedValue.length === 0) {
+                return
+              }
+            }
 
-      fs.writeFile(filePath, fileContent, (err) => {
-        if (err) console.error(err)
-        console.log('Dumped data to', filePath)
+            if (!keyMap[index].key.length) return
+
+            if (_isArray(keyMap[index].key)) {
+              keyMap[index].key.forEach((key) => {
+                jobSeeker[key] = editedValue
+              })
+            } else {
+              jobSeeker[keyMap[index].key] = editedValue
+            }
+          })
+
+          // console.log(JSON.stringify(jobSeeker, null, 2))
+
+          promises.push(axios.post('http://localhost:3000/job_seekers', jobSeeker).then(() => {
+            numberOfSuccesses = numberOfSuccesses + 1
+          }).catch((error) => {
+            errorLogs.push({
+              errorMessage: _get(error, 'response.data.message'),
+              jobSeeker,
+              index
+            })
+          }).finally(() => {
+            numberTotal = numberTotal + 1
+          }))
+        })
+
+        axios.all(promises).finally(() => {
+          console.log(`${numberOfSuccesses}/${numberTotal} submitted successfully`)
+
+          if (!errorLogs.length) {
+            return
+          }
+
+          const fileContent = JSON.stringify(errorLogs, null, 2)
+
+          const filePath = `data/jobSeekerImportErrorLog_${(new Date()).toJSON()}.json`
+
+          fs.writeFile(filePath, fileContent, (err) => {
+            if (err) console.error(err)
+            console.log('Logged errors to', filePath)
+          })
+        })
       })
     } else {
       console.log('No data found.')

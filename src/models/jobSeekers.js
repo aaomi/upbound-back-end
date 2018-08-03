@@ -22,8 +22,33 @@ import { DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS } from 'constants/database/jobSeeke
 router.use([`/${ROUTE_JOB_SEEKERS}/:${ROUTE_JOB_SEEKERS_ID}`], authenticateUser)
 
 function ensureUsername (userBody) {
+  let firstName = userBody['first_name']
+  let lastName = userBody['last_name']
+
+  if (firstName) {
+    firstName = firstName.replace(/\s/gi, '_').replace(/[^\w]/gi, '')
+  }
+  if (lastName) {
+    lastName = lastName.replace(/\s/gi, '_').replace(/[^\w]/gi, '')
+  }
+
+  if (!firstName && !lastName) {
+    if (userBody['email'] && userBody['email'].match('@')) {
+      return Object.assign({
+        username: userBody['email'].split('@')[0].toLowerCase()
+      }, userBody)
+    }
+    throw new Error('No first name or last name provided') // TODO: this should be taken care of with validation
+  }
+
+  if (!firstName || !lastName) {
+    return Object.assign({
+      username: (firstName || lastName).toLowerCase()
+    }, userBody)
+  }
+
   return Object.assign({
-    username: (`${userBody.first_name}.${userBody.last_name}`).toLowerCase()
+    username: (`${firstName}.${lastName}`).toLowerCase()
   }, userBody)
 }
 
@@ -33,10 +58,10 @@ function typeCastJobSeekerIntakeBoolean (value) {
   }
 
   const lowerCaseString = value.toLowerCase()
-  if (lowerCaseString === 'n') {
+  if (lowerCaseString[0] === 'n') {
     return false
   }
-  if (lowerCaseString === 'y') {
+  if (lowerCaseString[0] === 'y') {
     return true
   }
   if (lowerCaseString === 'no') {
@@ -55,11 +80,14 @@ router
 
     const jobSeekerId = await ctx.knex.transaction(async (trx) => {
       // Order of events: create users, create job seeker, create guardians, create job placements
-      const jobSeekerUserId = (await trx.insert(ensureUsername(Object.assign(_pick(ctx.request.body, [
+      const jobSeekerUserInfo = ensureUsername(Object.assign({
+        created_at: new Date()
+      }, _pick(ctx.request.body, [
         'username',
         'first_name',
         'last_name',
         'birth_date',
+        'created_at',
         'email',
         'phone',
         'address_line_one',
@@ -68,9 +96,36 @@ router
         'address_zip_postal',
         'address_state_province',
         'address_country'
-      ]), {
-        created_at: new Date()
-      }))).returning('id').into(DB_TABLE_NAME_USERS))[0]
+      ])))
+
+      let jobSeekerUserId
+      let matchedJobSeekerUsers
+
+      if (jobSeekerUserInfo['birth_date']) {
+        jobSeekerUserInfo['birth_date'] = new Date(jobSeekerUserInfo['birth_date'])
+      }
+      if (jobSeekerUserInfo['email']) {
+        jobSeekerUserInfo['email'] = jobSeekerUserInfo['email'].toLowerCase()
+
+        matchedJobSeekerUsers = await trx(DB_TABLE_NAME_USERS).where({
+          email: jobSeekerUserInfo['email']
+        })
+      }
+      if (!matchedJobSeekerUsers || !matchedJobSeekerUsers.length) {
+        matchedJobSeekerUsers = await trx(DB_TABLE_NAME_USERS).where({
+          username: jobSeekerUserInfo['username']
+        })
+      }
+
+      if (matchedJobSeekerUsers && matchedJobSeekerUsers.length) {
+        jobSeekerUserId = matchedJobSeekerUsers[0].id
+      } else {
+        jobSeekerUserId = (await trx.insert(jobSeekerUserInfo).returning('id').into(DB_TABLE_NAME_USERS))[0]
+      }
+
+      if ((await trx(DB_TABLE_NAME_JOB_SEEKERS).where({ user_id: jobSeekerUserId })).length) {
+        throw new ApiError('A job seeker is already associated with this user', STATUS_BAD_REQUEST)
+      }
 
       const jobSeekerInfo = Object.assign(_pick(ctx.request.body, [
         'last_contacted',
@@ -126,19 +181,43 @@ router
       jobSeekerInfo['transportation_drivers_license'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['transportation_drivers_license'])
       jobSeekerInfo['transportation_has_vehicle'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['transportation_has_vehicle'])
       jobSeekerInfo['resume_present'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['resume_present'])
-      jobSeekerInfo['assessment_ichat'] = `{${jobSeekerInfo['assessment_ichat']}}`
+      if (jobSeekerInfo['assessment_ichat']) {
+        jobSeekerInfo['assessment_ichat'] = `{${jobSeekerInfo['assessment_ichat']}}`
+      }
 
       const jobSeekerId = (await trx.insert(jobSeekerInfo).returning('id').into(DB_TABLE_NAME_JOB_SEEKERS))[0]
 
       if (ctx.request.body['guardian_email']) {
-        const jobSeekerGuardianUserId = (await trx.insert(ensureUsername(_mapKeys(Object.assign(_pick(ctx.request.body, [
+        const jobSeekerGuardianUserInfo = ensureUsername(_mapKeys(Object.assign({
+          created_at: new Date()
+        }, _pick(ctx.request.body, [
           'guardian_first_name',
           'guardian_last_name',
           'guardian_email',
           'guardian_phone'
-        ]), {
-          created_at: new Date()
-        }), (value, key) => key.replace('guardian_', '')))).returning('id').into(DB_TABLE_NAME_USERS))[0]
+        ])), (value, key) => key.replace('guardian_', '')))
+
+        let matchedGuardianUsers
+        if (jobSeekerGuardianUserInfo['email']) {
+          jobSeekerGuardianUserInfo['email'] = jobSeekerGuardianUserInfo['email'].toLowerCase()
+
+          matchedGuardianUsers = await trx(DB_TABLE_NAME_USERS).where({
+            email: jobSeekerGuardianUserInfo['email']
+          })
+        }
+
+        if (!matchedGuardianUsers || !matchedGuardianUsers.length) {
+          matchedGuardianUsers = await trx(DB_TABLE_NAME_USERS).where({
+            username: jobSeekerGuardianUserInfo['username']
+          })
+        }
+
+        let jobSeekerGuardianUserId
+        if (matchedGuardianUsers && matchedGuardianUsers.length) {
+          jobSeekerGuardianUserId = matchedGuardianUsers[0].id
+        } else {
+          jobSeekerGuardianUserId = (await trx.insert(jobSeekerGuardianUserInfo).returning('id').into(DB_TABLE_NAME_USERS))[0]
+        }
 
         await trx.insert({
           guardian_user_id: jobSeekerGuardianUserId,
@@ -160,7 +239,15 @@ router
         'job_placement_fte'
       ]), (value, key) => key.replace('job_placement_', ''))
 
-      jobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(jobPlacementInfo['through_aaom'])
+      if (jobPlacementInfo['start_date']) {
+        jobPlacementInfo['start_date'] = new Date(jobPlacementInfo['start_date'])
+      }
+      if (jobPlacementInfo['end_date']) {
+        jobPlacementInfo['end_date'] = new Date(jobPlacementInfo['end_date'])
+      }
+      if (jobPlacementInfo['through_aaom']) {
+        jobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(jobPlacementInfo['through_aaom'])
+      }
 
       if (!_isEmpty(jobPlacementInfo)) {
         await trx.insert(Object.assign(jobPlacementInfo, {
@@ -182,7 +269,15 @@ router
         'secondary_job_placement_fte'
       ]), (value, key) => key.replace('secondary_job_placement_', ''))
 
-      secondaryJobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(secondaryJobPlacementInfo['through_aaom'])
+      if (secondaryJobPlacementInfo['start_date']) {
+        secondaryJobPlacementInfo['start_date'] = new Date(secondaryJobPlacementInfo['start_date'])
+      }
+      if (secondaryJobPlacementInfo['end_date']) {
+        secondaryJobPlacementInfo['end_date'] = new Date(secondaryJobPlacementInfo['end_date'])
+      }
+      if (secondaryJobPlacementInfo['through_aaom']) {
+        secondaryJobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(secondaryJobPlacementInfo['through_aaom'])
+      }
 
       if (!_isEmpty(secondaryJobPlacementInfo)) {
         await trx.insert(Object.assign(secondaryJobPlacementInfo, {
@@ -204,7 +299,15 @@ router
         'tertiary_job_placement_fte'
       ]), (value, key) => key.replace('tertiary_job_placement_', ''))
 
-      tertiaryJobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(tertiaryJobPlacementInfo['through_aaom'])
+      if (tertiaryJobPlacementInfo['start_date']) {
+        tertiaryJobPlacementInfo['start_date'] = new Date(tertiaryJobPlacementInfo['start_date'])
+      }
+      if (tertiaryJobPlacementInfo['end_date']) {
+        tertiaryJobPlacementInfo['end_date'] = new Date(tertiaryJobPlacementInfo['end_date'])
+      }
+      if (tertiaryJobPlacementInfo['through_aaom']) {
+        tertiaryJobPlacementInfo['through_aaom'] = typeCastJobSeekerIntakeBoolean(tertiaryJobPlacementInfo['through_aaom'])
+      }
 
       if (!_isEmpty(tertiaryJobPlacementInfo)) {
         await trx.insert(Object.assign(tertiaryJobPlacementInfo, {
