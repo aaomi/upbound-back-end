@@ -183,7 +183,8 @@ router
         'status_candidate_stage',
         'status_job_current',
         'job_coaching',
-        'job_consideration'
+        'job_consideration',
+        'from_db'
       ]), {
         user_id: jobSeekerUserId
       })

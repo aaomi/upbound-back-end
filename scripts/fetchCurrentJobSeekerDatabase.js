@@ -88,10 +88,6 @@ function fetchJobSeekers (auth) {
     if (err) return console.log('The API returned an error: ' + err + err.stack + JSON.stringify(data))
     const rows = data.values
     if (rows.length) {
-      // const fileContent = rows.map((row, index) => {
-      //   return row.join(',')
-      // }).join('\n')
-
       fs.readFile('data/job_seeker_db_key_map.json', (err, content) => {
         if (err) return console.log('Error loading key map file:', err)
 
@@ -135,7 +131,7 @@ function fetchJobSeekers (auth) {
             return
           }
 
-          // console.log(JSON.stringify(jobSeeker, null, 2))
+          jobSeeker['from_db'] = true
 
           promises.push(axios.post('http://localhost:3000/job_seekers', jobSeeker).then(() => {
             numberOfSuccesses = numberOfSuccesses + 1
