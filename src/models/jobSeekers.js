@@ -20,6 +20,7 @@ import { DB_TABLE_NAME_JOB_SEEKER_PLACEMENTS } from 'constants/database/jobSeeke
 
 // Authenticate for any user change routes
 router.use([`/${ROUTE_JOB_SEEKERS}/:${ROUTE_JOB_SEEKERS_ID}`], authenticateUser)
+router.get(`/${ROUTE_JOB_SEEKERS}`, authenticateUser)
 
 function ensureUsername (userBody) {
   let firstName = userBody['first_name']
@@ -38,7 +39,7 @@ function ensureUsername (userBody) {
         username: userBody['email'].split('@')[0].toLowerCase()
       }, userBody)
     }
-    throw new Error('No first name or last name provided') // TODO: this should be taken care of with validation
+    throw new ApiError('No first name or last name provided') // TODO: this should be taken care of with validation
   }
 
   if (!firstName || !lastName) {
@@ -75,6 +76,13 @@ function typeCastJobSeekerIntakeBoolean (value) {
 }
 
 router
+  .get(`/${ROUTE_JOB_SEEKERS}`, async (ctx, next) => {
+    // TODO: authorize the logged in user
+    const matchedJobSeekers = await ctx.knex(DB_TABLE_NAME_USERS)
+      .join(DB_TABLE_NAME_JOB_SEEKERS, `${DB_TABLE_NAME_USERS}.${'id'}`, '=', `${DB_TABLE_NAME_JOB_SEEKERS}.${'user_id'}`)
+
+    return new ApiSuccess(matchedJobSeekers, STATUS_OK)
+  })
   .post(`/${ROUTE_JOB_SEEKERS}`, async (ctx, next) => {
     // TODO: validate request
 
