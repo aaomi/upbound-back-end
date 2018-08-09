@@ -5,6 +5,7 @@ const axios = require('axios')
 const _get = require('lodash/get')
 const _isArray = require('lodash/isArray')
 const _isString = require('lodash/isString')
+const _isEmpty = require('lodash/isEmpty')
 
 // If modifying these scopes, delete credentials.json.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
@@ -124,17 +125,27 @@ function fetchJobSeekers (auth) {
             }
           })
 
+          // Special case for empty rows
+          if (_isEmpty(jobSeeker)) {
+            return
+          }
+
+          // Special case for color legend rows
+          if (jobSeeker['email'] && jobSeeker['email'][jobSeeker['email'].length - 1] === ':') {
+            return
+          }
+
           // console.log(JSON.stringify(jobSeeker, null, 2))
 
           promises.push(axios.post('http://localhost:3000/job_seekers', jobSeeker).then(() => {
             numberOfSuccesses = numberOfSuccesses + 1
           }).catch((error) => {
-            if (_get(error, 'response.data.status') === 400) {
+            if (_get(error, 'response.data.message') === 'A job seeker is already associated with this user') {
               return
             }
 
             errorLogs.push({
-              errorMessage: _get(error, 'response.data.message') || _get(error, 'response'),
+              errorMessage: _get(error, 'response.data.message') || JSON.stringify(_get(error, 'response')),
               jobSeeker,
               index
             })
