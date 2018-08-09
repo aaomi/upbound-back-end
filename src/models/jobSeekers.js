@@ -39,7 +39,6 @@ function ensureUsername (userBody) {
         username: userBody['email'].split('@')[0].toLowerCase()
       }, userBody)
     }
-    throw new ApiError('No first name or last name provided') // TODO: this should be taken care of with validation
   }
 
   if (!firstName || !lastName) {
@@ -84,7 +83,10 @@ router
     return new ApiSuccess(matchedJobSeekers, STATUS_OK)
   })
   .post(`/${ROUTE_JOB_SEEKERS}`, async (ctx, next) => {
-    // TODO: validate request
+    // TODO: validate request (more)
+    if (!ctx.request.body['first_name'] && !ctx.request.body['last_name']) {
+      throw new ApiError('No first name or last name provided')
+    }
 
     const jobSeekerId = await ctx.knex.transaction(async (trx) => {
       // Order of events: create users, create job seeker, create guardians, create job placements
@@ -189,9 +191,6 @@ router
       jobSeekerInfo['transportation_drivers_license'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['transportation_drivers_license'])
       jobSeekerInfo['transportation_has_vehicle'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['transportation_has_vehicle'])
       jobSeekerInfo['resume_present'] = typeCastJobSeekerIntakeBoolean(jobSeekerInfo['resume_present'])
-      if (jobSeekerInfo['assessment_ichat']) {
-        jobSeekerInfo['assessment_ichat'] = `{${jobSeekerInfo['assessment_ichat']}}`
-      }
 
       const jobSeekerId = (await trx.insert(jobSeekerInfo).returning('id').into(DB_TABLE_NAME_JOB_SEEKERS))[0]
 

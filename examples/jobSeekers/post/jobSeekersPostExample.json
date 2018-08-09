@@ -48,7 +48,7 @@
   "region_aaom_mi": "TEXT",
   "resume_present": true,
   "resume_edit": "TEXT",
-  "assessment_ichat": "{N}",
+  "assessment_ichat": "N",
   "assessment_objective_status": "TEXT",
   "assessment_summary": "TEXT",
   "assessment_achenbach": "TEXT",

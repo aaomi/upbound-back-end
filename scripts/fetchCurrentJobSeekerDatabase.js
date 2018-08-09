@@ -102,7 +102,7 @@ function fetchJobSeekers (auth) {
         let numberTotal = 0
 
         rows.forEach((row, index) => {
-          if (index === 0 || (index >= 457 && index <= 470)) return // TODO: this should just validate a few key fields instead
+          if (index === 0) return // TODO: this should just validate a few key fields instead
           const jobSeeker = {}
           row.forEach((value, index) => {
             let editedValue = value
@@ -129,8 +129,12 @@ function fetchJobSeekers (auth) {
           promises.push(axios.post('http://localhost:3000/job_seekers', jobSeeker).then(() => {
             numberOfSuccesses = numberOfSuccesses + 1
           }).catch((error) => {
+            if (_get(error, 'response.data.status') === 400) {
+              return
+            }
+
             errorLogs.push({
-              errorMessage: _get(error, 'response.data.message'),
+              errorMessage: _get(error, 'response.data.message') || _get(error, 'response'),
               jobSeeker,
               index
             })
