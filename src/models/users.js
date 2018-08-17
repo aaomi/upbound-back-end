@@ -80,7 +80,7 @@ router
     // TODO: validate request
 
     const hash = crypto.createHash('sha256')
-    hash.update(ctx.request.body.password)
+    hash.update(ctx.request.body['password'])
 
     // TODO: move id into constant
     let user, token
@@ -123,16 +123,18 @@ router
     }, STATUS_CREATED, 'User created')
   })
   .post(`/${ROUTE_SESSIONS}/${ROUTE_SESSIONS_CREATE}`, async (ctx, next) => {
-    // TODO: validate request
+    if (!ctx.request.body['username'] || !ctx.request.body['password']) {
+      throw new ApiError('Username and password required', STATUS_BAD_REQUEST)
+    }
 
-    const usernameOrEmail = ctx.request.body.username.match('@')
+    const usernameOrEmail = ctx.request.body['username'].match('@')
       ? 'email' : 'username'
 
     const hash = crypto.createHash('sha256')
-    hash.update(ctx.request.body.password)
+    hash.update(ctx.request.body['password'])
 
     const matchedUsers = await ctx.knex(DB_TABLE_NAME_USERS).where({
-      [usernameOrEmail]: ctx.request.body.username,
+      [usernameOrEmail]: ctx.request.body['username'],
       password_digest: hash.digest('hex')
     })
 
@@ -151,7 +153,7 @@ router
 
     await ctx.knex.raw(`
       UPDATE users SET tokens = tokens || '{${token}}'
-        WHERE ${usernameOrEmail} = '${ctx.request.body.username}'
+        WHERE ${usernameOrEmail} = '${ctx.request.body['username']}'
     `)
 
     return new ApiSuccess({
@@ -213,4 +215,10 @@ router
 
     // TODO: localize text
     return new ApiSuccess(undefined, STATUS_OK, 'User deleted')
+  })
+  .all(`/${ROUTE_SESSIONS}/${ROUTE_SESSIONS_CREATE}`, async (ctx, next) => {
+    return new ApiSuccess(undefined, STATUS_OK)
+  })
+  .all(`/${ROUTE_USERS}/:${ROUTE_USERS_USER_ID}`, async (ctx, next) => {
+    return new ApiSuccess(undefined, STATUS_OK)
   })

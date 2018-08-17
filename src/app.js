@@ -1,10 +1,10 @@
-import _isObject from 'lodash/isObject'
 import _pick from 'lodash/pick'
 
 import http from 'http'
 import https from 'https'
 
 import Koa from 'koa'
+import cors from '@koa/cors'
 
 import bodyParser from 'koa-bodyparser'
 import logger from 'koa-logger'
@@ -24,7 +24,6 @@ import 'models/jobSeekers'
 
 import { DIRECTORY_PATH_LOG_FOLDER } from 'constants/directories'
 import { LOG_FILE_PATH_ACCESS_LOG } from 'constants/logs'
-import { NUMBER_OF_SPACES_PER_TAB } from 'constants/responses'
 import { PORT_NUMBER_DEV_HTTP, PORT_NUMBER_DEV_HTTPS, POSTGRES_URL_DEV } from 'constants/hosting'
 
 import ApiError, { STATUS_INTERNAL_SERVER_ERROR } from 'responses/error'
@@ -116,10 +115,7 @@ app.use(async (ctx, next) => {
   }
 })
 
-router
-  .get('/', (ctx, next) => {
-    return new ApiSuccess('Hello World!')
-  })
+app.use(cors())
 
 app.use(async (ctx, next) => {
   let result = {}
@@ -133,21 +129,14 @@ app.use(async (ctx, next) => {
   ctx.body = result
 })
 
+router
+  .get('/', (ctx, next) => {
+    return new ApiSuccess('Hello World!')
+  })
+
 app
   .use(router.routes())
   .use(router.allowedMethods())
-
-// Prettify response
-
-app.use(async ctx => {
-  if (_isObject(ctx.body)) {
-    if (__DEV__) {
-      ctx.body = JSON.stringify(ctx.body, null, NUMBER_OF_SPACES_PER_TAB)
-      return
-    }
-    ctx.body = JSON.stringify(ctx.body)
-  }
-})
 
 // Connect db before starting server
 app.context.db.connect((err) => {

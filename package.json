@@ -36,6 +36,7 @@
     "nodemon": "^1.17.4"
   },
   "dependencies": {
+    "@koa/cors": "^2.2.2",
     "ajv": "^5.5.2",
     "aws-sdk": "^2.245.1",
     "babel-cli": "^6.26.0",
