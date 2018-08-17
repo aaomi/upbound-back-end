@@ -1,7 +1,9 @@
+import _get from 'lodash/get'
 import _pick from 'lodash/pick'
 import _isEmpty from 'lodash/isEmpty'
 import _mapKeys from 'lodash/mapKeys'
 import _isString from 'lodash/isString'
+import _isArray from 'lodash/isArray'
 import _isUndefined from 'lodash/isUndefined'
 
 import router from 'router'
@@ -77,8 +79,35 @@ function typeCastJobSeekerIntakeBoolean (value) {
 router
   .get(`/${ROUTE_JOB_SEEKERS}`, async (ctx, next) => {
     // TODO: authorize the logged in user
+    if (_get(ctx, `request.query.${'region_aaom_mi'}`) &&
+      !_isArray(ctx.request.query['region_aaom_mi'])
+    ) {
+      ctx.request.query['region_aaom_mi'] = [ctx.request.query['region_aaom_mi']]
+    }
+
+    let whereStatements = []
+
+    if (_get(ctx, `request.query.${'name'}`)) {
+      const nameStatements = [
+        `${'first_name'} % '${ctx.request.query['name']}'`,
+        `${'last_name'} % '${ctx.request.query['name']}'`,
+        `${'first_name'} LIKE '${ctx.request.query['name']}%'`,
+        `${'last_name'} LIKE '${ctx.request.query['name']}%'`
+      ]
+
+      whereStatements.push(`(${nameStatements.join('\nOR\n')})`)
+    }
+
+    if (_get(ctx, `request.query.${'region_aaom_mi'}`)) {
+      const regionStatements = ctx.request.query['region_aaom_mi'].map(
+        (region) => `${'region_aaom_mi'} LIKE '${region}%'`)
+
+      whereStatements.push(`(${regionStatements.join('\nOR\n')})`)
+    }
+
     const matchedJobSeekers = await ctx.knex(DB_TABLE_NAME_USERS)
       .join(DB_TABLE_NAME_JOB_SEEKERS, `${DB_TABLE_NAME_USERS}.${'id'}`, '=', `${DB_TABLE_NAME_JOB_SEEKERS}.${'user_id'}`)
+      .whereRaw(whereStatements.join('\nAND\n'))
 
     return new ApiSuccess(matchedJobSeekers, STATUS_OK)
   })

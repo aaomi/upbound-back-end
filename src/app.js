@@ -1,3 +1,4 @@
+import _get from 'lodash/get'
 import _pick from 'lodash/pick'
 
 import http from 'http'
@@ -91,6 +92,23 @@ app.use(async (ctx, next) => {
 })
 
 app.use(bodyParser())
+
+app.use((ctx, next) => {
+  const result = next()
+  if (!_get(ctx, 'request.query')) {
+    return result
+  }
+
+  Object.keys(ctx.request.query).forEach(queryParamKey => {
+    if (queryParamKey.match(/\[\]/)) {
+      const strippedKey = queryParamKey.replace('[]', '')
+      ctx.request.query[strippedKey] = ctx.request.query[queryParamKey]
+      ctx.request.query[queryParamKey] = undefined
+    }
+  })
+
+  return result
+})
 
 // response
 
